@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>投資分析アプリ | toushibunseki-app</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://s3.tradingview.com/tv.js"></script>
+</head>
+<body>
+<header class="app-header">
+  <h1>投資分析ノート</h1>
+  <p class="app-subtitle">ルーティン・トレード日誌・銘柄分析・マクロシナリオを一つに</p>
+</header>
+
+<nav class="tab-nav" id="tabNav">
+  <button class="tab-btn is-active" data-tab="dashboard">ダッシュボード</button>
+  <button class="tab-btn" data-tab="tradeJournal">トレード日誌</button>
+  <button class="tab-btn" data-tab="stockAnalysis">銘柄分析</button>
+  <button class="tab-btn" data-tab="macroScenario">マクロ・シナリオ</button>
+  <button class="tab-btn" data-tab="resources">学習リソース</button>
+</nav>
+
+<main class="tab-panels">
+  <section id="panel-dashboard" class="tab-panel is-active"></section>
+  <section id="panel-tradeJournal" class="tab-panel"></section>
+  <section id="panel-stockAnalysis" class="tab-panel"></section>
+  <section id="panel-macroScenario" class="tab-panel"></section>
+  <section id="panel-resources" class="tab-panel"></section>
+</main>
+
+<script src="js/storage.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/tradeJournal.js"></script>
+<script src="js/stockAnalysis.js"></script>
+<script src="js/macroScenario.js"></script>
+<script src="js/resources.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
