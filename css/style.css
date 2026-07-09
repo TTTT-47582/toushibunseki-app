@@ -207,21 +207,31 @@ th {
   font-weight: 700;
 }
 
-.checklist-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.checklist-item-block {
   padding: 8px 0;
   border-bottom: 1px solid var(--color-border);
 }
 
-.checklist-item:last-child {
+.checklist-item-block:last-of-type {
   border-bottom: none;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
 .checklist-item input[type="checkbox"] {
   width: 18px;
   height: 18px;
+}
+
+.checklist-item-block textarea {
+  width: 100%;
+  min-height: 44px;
+  font-size: 0.85rem;
 }
 
 .link-list {
