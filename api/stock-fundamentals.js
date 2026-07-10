@@ -37,12 +37,21 @@ module.exports = async (req, res) => {
     const bps = pick(latestFin, ["BPS", "bps", "NetAssetsPerShare"]);
     const netProfit = pick(latestFin, ["NP", "NetProfit"]);
     const equity = pick(latestFin, ["NetAssets", "Equity", "TotalNetAssets"]);
+    const totalAssets = pick(latestFin, ["TA", "TotalAssets"]);
+    const dividendPerShare = pick(latestFin, ["DivAnn", "DividendPerShare", "AnnualDividend"]);
+    const sharesOutstanding = pick(latestFin, ["SharesOutstanding", "IssuedShares"]);
 
     const per = eps && latestClose ? round(latestClose / eps) : null;
     const pbr = bps && latestClose ? round(latestClose / bps) : null;
     const roe = netProfit && equity ? round((netProfit / equity) * 100) : null;
+    const roa = netProfit && totalAssets ? round((netProfit / totalAssets) * 100) : null;
+    const equityRatio = equity && totalAssets ? round((equity / totalAssets) * 100) : null;
+    const dividendYield = dividendPerShare && latestClose ? round((dividendPerShare / latestClose) * 100) : null;
+    const marketCap = sharesOutstanding && latestClose
+      ? round((sharesOutstanding * latestClose) / 100000000)
+      : null;
 
-    res.status(200).json({ per, pbr, roe, eps, bps, latestClose });
+    res.status(200).json({ per, pbr, roe, roa, equityRatio, dividendYield, marketCap, eps, bps, latestClose });
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }

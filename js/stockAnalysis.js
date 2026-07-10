@@ -6,6 +6,65 @@ function normalizeSymbol(code) {
   return `TSE:${trimmed}`;
 }
 
+const FUNDAMENTAL_JUDGE_RULES = {
+  per: [
+    { max: 15, label: "割安", cls: "badge-good" },
+    { max: 20, label: "適正", cls: "badge-neutral" },
+    { max: Infinity, label: "割高", cls: "badge-warn" }
+  ],
+  pbr: [
+    { max: 1, label: "割安", cls: "badge-good" },
+    { max: 1.4, label: "適正", cls: "badge-neutral" },
+    { max: Infinity, label: "割高", cls: "badge-warn" }
+  ],
+  roe: [
+    { max: 5, label: "要注意", cls: "badge-warn" },
+    { max: 10, label: "普通", cls: "badge-neutral" },
+    { max: Infinity, label: "優良", cls: "badge-good" }
+  ],
+  dividendYield: [
+    { max: 1, label: "低い", cls: "badge-warn" },
+    { max: 3, label: "標準", cls: "badge-neutral" },
+    { max: Infinity, label: "高配当", cls: "badge-good" }
+  ],
+  roa: [
+    { max: 3, label: "低い", cls: "badge-warn" },
+    { max: 5, label: "標準", cls: "badge-neutral" },
+    { max: Infinity, label: "優良", cls: "badge-good" }
+  ],
+  equityRatio: [
+    { max: 20, label: "要注意", cls: "badge-warn" },
+    { max: 40, label: "標準", cls: "badge-neutral" },
+    { max: Infinity, label: "健全", cls: "badge-good" }
+  ]
+};
+
+function judgeFundamental(key, rawValue) {
+  const rules = FUNDAMENTAL_JUDGE_RULES[key];
+  const value = parseFloat(rawValue);
+  if (!rules || !Number.isFinite(value)) return null;
+  return rules.find((rule) => value <= rule.max) || null;
+}
+
+function renderFundamentalField(name, label, value) {
+  return `
+    <div class="form-field">
+      <label>${label}</label>
+      <input type="text" name="${name}" value="${escapeHtml(value || "")}" data-judge="${name}">
+      <span id="judge-${name}" class="empty-state" style="padding:2px 0 0;"></span>
+    </div>
+  `;
+}
+
+function renderJudgeBadge(el, key, rawValue) {
+  const result = judgeFundamental(key, rawValue);
+  if (!result) {
+    el.innerHTML = "";
+    return;
+  }
+  el.innerHTML = `<span class="badge ${result.cls}">${result.label}</span>`;
+}
+
 function buildYahooUrl(symbol) {
   if (symbol.startsWith("TSE:")) {
     const code = symbol.slice(4);
@@ -47,9 +106,7 @@ function renderStockAnalysis() {
         <a class="btn btn-secondary" href="${buildYahooUrl(currentTicker)}" target="_blank" rel="noopener noreferrer">Yahoo!ファイナンスで開く</a>
       </div>
       ` : ""}
-      <div id="jp-chart-status" class="empty-state" style="padding-top:0;"></div>
-      <div id="jp-chart-wrap" style="display:none; height:420px;"><canvas id="jp-chart-container"></canvas></div>
-      <div class="empty-state" id="noTickerMsg" style="${currentTicker ? "display:none;" : ""}">銘柄コードを入力してチャートを表示してください。</div>
+      <div class="empty-state" id="noTickerMsg" style="${currentTicker ? "display:none;" : "padding-top:0;"}">銘柄コードを入力してください（チャートは外部リンク先で確認できます）。</div>
     </div>
 
     ${currentTicker ? `
@@ -58,13 +115,17 @@ function renderStockAnalysis() {
       <form id="stockNoteForm">
         <h3>① ファンダメンタルズ分析</h3>
         <div class="ticker-select-row">
-          <button type="button" class="btn btn-secondary" id="fetchFundamentalsBtn">PER/PBR/ROEを自動取得</button>
+          <button type="button" class="btn btn-secondary" id="fetchFundamentalsBtn">指標を自動取得</button>
           <span id="fetchFundamentalsStatus" class="empty-state" style="padding:0;"></span>
         </div>
         <div class="form-grid">
-          <div class="form-field"><label>PER</label><input type="text" name="per" value="${escapeHtml(f.per || "")}"></div>
-          <div class="form-field"><label>PBR</label><input type="text" name="pbr" value="${escapeHtml(f.pbr || "")}"></div>
-          <div class="form-field"><label>ROE</label><input type="text" name="roe" value="${escapeHtml(f.roe || "")}"></div>
+          ${renderFundamentalField("per", "PER（倍）", f.per)}
+          ${renderFundamentalField("pbr", "PBR（倍）", f.pbr)}
+          ${renderFundamentalField("roe", "ROE（%）", f.roe)}
+          ${renderFundamentalField("dividendYield", "配当利回り（%）", f.dividendYield)}
+          ${renderFundamentalField("roa", "ROA（%）", f.roa)}
+          ${renderFundamentalField("equityRatio", "自己資本比率（%）", f.equityRatio)}
+          <div class="form-field"><label>時価総額（億円）</label><input type="text" name="marketCap" value="${escapeHtml(f.marketCap || "")}"></div>
           <div class="form-field full-width">
             <label>業績推移（売上高・営業利益・経常利益、前年同期比、進捗率）</label>
             <textarea name="earningsTrend">${escapeHtml(f.earningsTrend || "")}</textarea>
@@ -130,10 +191,6 @@ function renderStockAnalysis() {
     ` : ""}
   `;
 
-  if (currentTicker) {
-    loadStockChart(currentTicker);
-  }
-
   panel.querySelector("#loadTickerBtn").addEventListener("click", () => {
     const val = panel.querySelector("#tickerInput").value.trim();
     if (!val) return;
@@ -160,6 +217,10 @@ function renderStockAnalysis() {
           per: fd.get("per"),
           pbr: fd.get("pbr"),
           roe: fd.get("roe"),
+          dividendYield: fd.get("dividendYield"),
+          roa: fd.get("roa"),
+          equityRatio: fd.get("equityRatio"),
+          marketCap: fd.get("marketCap"),
           earningsTrend: fd.get("earningsTrend"),
           businessModel: fd.get("businessModel"),
           industryTrend: fd.get("industryTrend"),
@@ -176,14 +237,31 @@ function renderStockAnalysis() {
       renderStockAnalysis();
     });
 
+    const judgeFields = ["per", "pbr", "roe", "dividendYield", "roa", "equityRatio"];
+    const updateAllJudgeBadges = () => {
+      judgeFields.forEach((key) => {
+        const input = form.querySelector(`[name='${key}']`);
+        const badge = form.querySelector(`#judge-${key}`);
+        if (input && badge) renderJudgeBadge(badge, key, input.value);
+      });
+    };
+    form.addEventListener("input", (e) => {
+      if (e.target.dataset && e.target.dataset.judge) {
+        renderJudgeBadge(form.querySelector(`#judge-${e.target.dataset.judge}`), e.target.dataset.judge, e.target.value);
+      }
+    });
+    updateAllJudgeBadges();
+
     panel.querySelector("#fetchFundamentalsBtn").addEventListener("click", async () => {
       const status = panel.querySelector("#fetchFundamentalsStatus");
       status.textContent = "取得中...";
       try {
         const res = await fetchStockApi("stock-fundamentals", currentTicker);
-        form.querySelector("[name='per']").value = res.per ?? "";
-        form.querySelector("[name='pbr']").value = res.pbr ?? "";
-        form.querySelector("[name='roe']").value = res.roe ?? "";
+        judgeFields.forEach((key) => {
+          if (res[key] !== undefined) form.querySelector(`[name='${key}']`).value = res[key] ?? "";
+        });
+        if (res.marketCap !== undefined) form.querySelector("[name='marketCap']").value = res.marketCap ?? "";
+        updateAllJudgeBadges();
         status.textContent = "取得しました（保存するには「メモを保存」を押してください）";
       } catch (err) {
         status.textContent = err.message;
@@ -308,53 +386,4 @@ async function fetchStockApi(endpoint, symbol) {
   return res.json();
 }
 
-let jpChartInstance = null;
-
-function loadStockChart(symbol) {
-  const jpWrap = document.getElementById("jp-chart-wrap");
-  const jpStatus = document.getElementById("jp-chart-status");
-
-  if (symbol.startsWith("TSE:")) {
-    jpWrap.style.display = "block";
-    loadJapaneseChart(symbol.slice(4), jpStatus);
-  } else {
-    jpWrap.style.display = "none";
-    jpStatus.textContent = "この銘柄のチャートは埋め込み表示に対応していません。上のリンクから確認してください。";
-  }
-}
-
-async function loadJapaneseChart(code, statusEl) {
-  statusEl.textContent = "チャートを取得中...";
-  if (jpChartInstance) {
-    jpChartInstance.destroy();
-    jpChartInstance = null;
-  }
-  let bars;
-  try {
-    bars = await fetchStockApi("stock-quotes", code);
-  } catch (err) {
-    statusEl.textContent = `${err.message}（上のリンクから実チャートを開いてください）`;
-    return;
-  }
-  if (!Array.isArray(bars) || !bars.length) {
-    statusEl.textContent = "株価データが見つかりませんでした（上のリンクから実チャートを開いてください）";
-    return;
-  }
-  statusEl.textContent = "";
-  const ctx = document.getElementById("jp-chart-container");
-  jpChartInstance = new Chart(ctx, {
-    type: "candlestick",
-    data: {
-      datasets: [{
-        label: code,
-        data: bars.map((b) => ({ x: new Date(b.date).getTime(), o: b.open, h: b.high, l: b.low, c: b.close }))
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: { x: { type: "time", time: { unit: "day" } } }
-    }
-  });
-}
 
