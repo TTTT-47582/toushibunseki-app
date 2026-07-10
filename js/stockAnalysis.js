@@ -6,10 +6,6 @@ function normalizeSymbol(code) {
   return `TSE:${trimmed}`;
 }
 
-function buildTradingViewUrl(symbol) {
-  return `https://jp.tradingview.com/symbols/${encodeURIComponent(symbol.replace(":", "-"))}/`;
-}
-
 function buildYahooUrl(symbol) {
   if (symbol.startsWith("TSE:")) {
     const code = symbol.slice(4);
@@ -46,18 +42,13 @@ function renderStockAnalysis() {
         <input type="text" id="tickerInput" placeholder="銘柄コード（例: 7203）またはシンボル（例: NASDAQ:AAPL）" value="${currentTicker ? (currentTicker.includes(":") ? "" : currentTicker) : ""}">
         <button class="btn" id="loadTickerBtn">表示</button>
       </div>
-      ${currentTicker ? `
-      <p class="empty-state" style="padding-top:0;">
-        日本株・指数はデータライセンスの都合でTradingViewの埋め込みチャートが表示できない場合があります。その場合は下のリンクから実チャートを開いてください。
-      </p>
+      ${currentTicker && buildYahooUrl(currentTicker) ? `
       <div class="ticker-select-row">
-        <a class="btn btn-secondary" href="${buildTradingViewUrl(currentTicker)}" target="_blank" rel="noopener noreferrer">TradingViewで開く</a>
-        ${buildYahooUrl(currentTicker) ? `<a class="btn btn-secondary" href="${buildYahooUrl(currentTicker)}" target="_blank" rel="noopener noreferrer">Yahoo!ファイナンスで開く</a>` : ""}
+        <a class="btn btn-secondary" href="${buildYahooUrl(currentTicker)}" target="_blank" rel="noopener noreferrer">Yahoo!ファイナンスで開く</a>
       </div>
       ` : ""}
       <div id="jp-chart-status" class="empty-state" style="padding-top:0;"></div>
       <div id="jp-chart-wrap" style="display:none; height:420px;"><canvas id="jp-chart-container"></canvas></div>
-      <div id="tv-chart-container"></div>
       <div class="empty-state" id="noTickerMsg" style="${currentTicker ? "display:none;" : ""}">銘柄コードを入力してチャートを表示してください。</div>
     </div>
 
@@ -320,20 +311,15 @@ async function fetchStockApi(endpoint, symbol) {
 let jpChartInstance = null;
 
 function loadStockChart(symbol) {
-  const tvContainer = document.getElementById("tv-chart-container");
   const jpWrap = document.getElementById("jp-chart-wrap");
   const jpStatus = document.getElementById("jp-chart-status");
 
   if (symbol.startsWith("TSE:")) {
-    tvContainer.style.display = "none";
-    tvContainer.innerHTML = "";
     jpWrap.style.display = "block";
     loadJapaneseChart(symbol.slice(4), jpStatus);
   } else {
     jpWrap.style.display = "none";
-    jpStatus.textContent = "";
-    tvContainer.style.display = "block";
-    loadTradingViewWidget(symbol);
+    jpStatus.textContent = "この銘柄のチャートは埋め込み表示に対応していません。上のリンクから確認してください。";
   }
 }
 
@@ -372,23 +358,3 @@ async function loadJapaneseChart(code, statusEl) {
   });
 }
 
-function loadTradingViewWidget(symbol) {
-  const container = document.getElementById("tv-chart-container");
-  if (!container || typeof TradingView === "undefined") return;
-  container.innerHTML = "";
-  new TradingView.widget({
-    width: "100%",
-    height: 460,
-    symbol: symbol,
-    interval: "D",
-    timezone: "Asia/Tokyo",
-    theme: "light",
-    style: "1",
-    locale: "ja",
-    toolbar_bg: "#f1f3f6",
-    enable_publishing: false,
-    allow_symbol_change: true,
-    studies: ["MASimple@tv-basicstudies", "MASimple@tv-basicstudies", "RSI@tv-basicstudies"],
-    container_id: "tv-chart-container"
-  });
-}
