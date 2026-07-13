@@ -1,4 +1,5 @@
 let pnlChartInstance = null;
+let editingTradeId = null;
 
 function computePnl(trade) {
   if (trade.exitPrice === null || trade.exitPrice === undefined || trade.exitPrice === "") {
@@ -15,6 +16,8 @@ function renderTradeJournal() {
   const data = loadData();
   const trades = [...data.trades].sort((a, b) => (a.date < b.date ? 1 : -1));
 
+  const editingTrade = editingTradeId ? trades.find((t) => t.id === editingTradeId) : null;
+
   const closedTrades = trades.filter((t) => computePnl(t) !== null);
   const wins = closedTrades.filter((t) => computePnl(t) > 0).length;
   const winRate = closedTrades.length ? Math.round((wins / closedTrades.length) * 1000) / 10 : 0;
@@ -23,50 +26,51 @@ function renderTradeJournal() {
 
   panel.innerHTML = `
     <div class="card">
-      <h2>新規トレード記録</h2>
+      <h2>${editingTrade ? "トレード記録を編集" : "新規トレード記録"}</h2>
       <form id="tradeForm">
         <div class="form-grid">
           <div class="form-field">
             <label>日付</label>
-            <input type="date" name="date" value="${todayKey()}" required>
+            <input type="date" name="date" value="${editingTrade ? editingTrade.date : todayKey()}" required>
           </div>
           <div class="form-field">
             <label>銘柄コード/名</label>
-            <input type="text" name="ticker" placeholder="例: 7203 トヨタ" required>
+            <input type="text" name="ticker" placeholder="例: 7203 トヨタ" value="${editingTrade ? escapeHtml(editingTrade.ticker) : ""}" required>
           </div>
           <div class="form-field">
             <label>売買区分</label>
             <select name="side">
-              <option value="buy">買い(ロング)</option>
-              <option value="sell">売り(ショート)</option>
+              <option value="buy" ${editingTrade && editingTrade.side === "buy" ? "selected" : ""}>買い(ロング)</option>
+              <option value="sell" ${editingTrade && editingTrade.side === "sell" ? "selected" : ""}>売り(ショート)</option>
             </select>
           </div>
           <div class="form-field">
             <label>エントリー価格</label>
-            <input type="number" step="0.01" name="price" required>
+            <input type="number" step="0.01" name="price" value="${editingTrade ? editingTrade.price : ""}" required>
           </div>
           <div class="form-field">
             <label>数量</label>
-            <input type="number" step="1" name="qty" required>
+            <input type="number" step="1" name="qty" value="${editingTrade ? editingTrade.qty : ""}" required>
           </div>
           <div class="form-field">
             <label>損切りライン</label>
-            <input type="number" step="0.01" name="stopLoss">
+            <input type="number" step="0.01" name="stopLoss" value="${editingTrade && editingTrade.stopLoss !== null ? editingTrade.stopLoss : ""}">
           </div>
           <div class="form-field">
             <label>決済価格（未決済なら空欄）</label>
-            <input type="number" step="0.01" name="exitPrice">
+            <input type="number" step="0.01" name="exitPrice" value="${editingTrade && editingTrade.exitPrice !== null ? editingTrade.exitPrice : ""}">
           </div>
           <div class="form-field full-width">
             <label>エントリー根拠</label>
-            <textarea name="rationale" placeholder="なぜこのタイミング・価格で判断したか"></textarea>
+            <textarea name="rationale" placeholder="なぜこのタイミング・価格で判断したか">${editingTrade ? escapeHtml(editingTrade.rationale || "") : ""}</textarea>
           </div>
           <div class="form-field full-width">
             <label>振り返り（シナリオ通りだったか / 結果はどうだったか）</label>
-            <textarea name="review"></textarea>
+            <textarea name="review">${editingTrade ? escapeHtml(editingTrade.review || "") : ""}</textarea>
           </div>
         </div>
-        <button type="submit" class="btn">記録する</button>
+        <button type="submit" class="btn">${editingTrade ? "更新する" : "記録する"}</button>
+        ${editingTrade ? `<button type="button" class="btn btn-secondary" id="cancelEditBtn">編集をキャンセル</button>` : ""}
       </form>
     </div>
 
@@ -152,7 +156,10 @@ function renderTradeJournal() {
           <td>${t.exitPrice ?? "-"}</td>
           <td class="${pnlClass}">${pnlLabel}</td>
           <td>${escapeHtml(t.rationale || "").slice(0, 30)}</td>
-          <td><button class="btn btn-danger btn-delete-trade" data-id="${t.id}">削除</button></td>
+          <td>
+            <button class="btn btn-secondary btn-edit-trade" data-id="${t.id}">編集</button>
+            <button class="btn btn-danger btn-delete-trade" data-id="${t.id}">削除</button>
+          </td>
         </tr>
       `;
     }).join("");
@@ -165,21 +172,36 @@ function renderTradeJournal() {
   panel.querySelector("#filterResult").addEventListener("change", renderTable);
 
   panel.querySelector("#tradeTable tbody").addEventListener("click", (e) => {
-    const btn = e.target.closest(".btn-delete-trade");
-    if (!btn) return;
-    if (!confirm("このトレード記録を削除しますか？")) return;
-    const d = loadData();
-    d.trades = d.trades.filter((t) => t.id !== btn.dataset.id);
-    saveData(d);
-    renderTradeJournal();
+    const deleteBtn = e.target.closest(".btn-delete-trade");
+    if (deleteBtn) {
+      if (!confirm("このトレード記録を削除しますか？")) return;
+      const d = loadData();
+      d.trades = d.trades.filter((t) => t.id !== deleteBtn.dataset.id);
+      saveData(d);
+      if (editingTradeId === deleteBtn.dataset.id) editingTradeId = null;
+      renderTradeJournal();
+      return;
+    }
+    const editBtn = e.target.closest(".btn-edit-trade");
+    if (editBtn) {
+      editingTradeId = editBtn.dataset.id;
+      renderTradeJournal();
+    }
   });
+
+  const cancelEditBtn = panel.querySelector("#cancelEditBtn");
+  if (cancelEditBtn) {
+    cancelEditBtn.addEventListener("click", () => {
+      editingTradeId = null;
+      renderTradeJournal();
+    });
+  }
 
   panel.querySelector("#tradeForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const d = loadData();
-    d.trades.push({
-      id: generateId(),
+    const tradeData = {
       date: fd.get("date"),
       ticker: fd.get("ticker").trim(),
       side: fd.get("side"),
@@ -189,7 +211,14 @@ function renderTradeJournal() {
       exitPrice: fd.get("exitPrice") ? parseFloat(fd.get("exitPrice")) : null,
       rationale: fd.get("rationale").trim(),
       review: fd.get("review").trim()
-    });
+    };
+    if (editingTradeId) {
+      const index = d.trades.findIndex((t) => t.id === editingTradeId);
+      if (index !== -1) d.trades[index] = { ...d.trades[index], ...tradeData };
+      editingTradeId = null;
+    } else {
+      d.trades.push({ id: generateId(), ...tradeData });
+    }
     saveData(d);
     renderTradeJournal();
   });
