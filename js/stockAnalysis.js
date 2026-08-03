@@ -173,16 +173,17 @@ function renderStockAnalysis() {
 
     <div class="card">
       <h2>④ 理論株価計算</h2>
-      <p class="empty-state" style="padding-top:0;">EPS・BPS・配当などを入力すると、複数の手法で理論株価の目安を計算します。あくまで目安であり、投資判断は総合的に行ってください。</p>
+      <p class="empty-state" style="padding-top:0;">EPS・BPS・ROEなどを入力すると、ROE法・PBR法・P/L法・B/S法・DCF法の5手法とその平均を即座に計算します。「指標を自動取得」でEPS/BPS/ROEも反映されます。あくまで目安であり、投資判断は総合的に行ってください。</p>
       <form id="valuationForm">
         <div class="form-grid">
           <div class="form-field"><label>EPS（1株当たり利益）</label><input type="number" step="0.01" name="eps" value="${escapeHtml(v.eps || "")}"></div>
           <div class="form-field"><label>想定PER（倍）</label><input type="number" step="0.1" name="assumedPer" value="${escapeHtml(v.assumedPer || "")}"></div>
           <div class="form-field"><label>BPS（1株当たり純資産）</label><input type="number" step="0.01" name="bps" value="${escapeHtml(v.bps || "")}"></div>
           <div class="form-field"><label>想定PBR（倍）</label><input type="number" step="0.1" name="assumedPbr" value="${escapeHtml(v.assumedPbr || "")}"></div>
-          <div class="form-field"><label>予想1株配当</label><input type="number" step="0.01" name="dividendPerShare" value="${escapeHtml(v.dividendPerShare || "")}"></div>
-          <div class="form-field"><label>期待配当成長率（%）</label><input type="number" step="0.1" name="growthRate" value="${escapeHtml(v.growthRate || "")}"></div>
-          <div class="form-field"><label>要求利回り（%）</label><input type="number" step="0.1" name="requiredReturn" value="${escapeHtml(v.requiredReturn || "")}"></div>
+          <div class="form-field"><label>ROE（%）</label><input type="number" step="0.1" name="roe" value="${escapeHtml(v.roe || "")}"></div>
+          <div class="form-field"><label>1株当たり予想FCF</label><input type="number" step="0.01" name="fcfPerShare" value="${escapeHtml(v.fcfPerShare || "")}"></div>
+          <div class="form-field"><label>期待成長率（%）</label><input type="number" step="0.1" name="growthRate" value="${escapeHtml(v.growthRate || "")}"></div>
+          <div class="form-field"><label>資本コスト／要求利回り（%）</label><input type="number" step="0.1" name="requiredReturn" value="${escapeHtml(v.requiredReturn || "")}"></div>
         </div>
         <button type="submit" class="btn">計算して保存</button>
       </form>
@@ -262,7 +263,15 @@ function renderStockAnalysis() {
         });
         if (res.marketCap !== undefined) form.querySelector("[name='marketCap']").value = res.marketCap ?? "";
         updateAllJudgeBadges();
-        status.textContent = "取得しました（保存するには「メモを保存」を押してください）";
+
+        const valuationForm = panel.querySelector("#valuationForm");
+        if (valuationForm) {
+          if (res.eps !== undefined) valuationForm.querySelector("[name='eps']").value = res.eps ?? "";
+          if (res.bps !== undefined) valuationForm.querySelector("[name='bps']").value = res.bps ?? "";
+          if (res.roe !== undefined) valuationForm.querySelector("[name='roe']").value = res.roe ?? "";
+          valuationForm.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        status.textContent = "取得しました（保存するには「メモを保存」を押してください。理論株価は自動で反映されました）";
       } catch (err) {
         status.textContent = err.message;
       }
@@ -312,7 +321,8 @@ function renderStockAnalysis() {
         assumedPer: parseFloat(fd.get("assumedPer")),
         bps: parseFloat(fd.get("bps")),
         assumedPbr: parseFloat(fd.get("assumedPbr")),
-        dividendPerShare: parseFloat(fd.get("dividendPerShare")),
+        roe: parseFloat(fd.get("roe")),
+        fcfPerShare: parseFloat(fd.get("fcfPerShare")),
         growthRate: parseFloat(fd.get("growthRate")),
         requiredReturn: parseFloat(fd.get("requiredReturn"))
       }));
@@ -330,7 +340,8 @@ function renderStockAnalysis() {
           assumedPer: fd.get("assumedPer"),
           bps: fd.get("bps"),
           assumedPbr: fd.get("assumedPbr"),
-          dividendPerShare: fd.get("dividendPerShare"),
+          roe: fd.get("roe"),
+          fcfPerShare: fd.get("fcfPerShare"),
           growthRate: fd.get("growthRate"),
           requiredReturn: fd.get("requiredReturn")
         },
@@ -343,28 +354,38 @@ function renderStockAnalysis() {
   }
 }
 
-function computeValuation({ eps, assumedPer, bps, assumedPbr, dividendPerShare, growthRate, requiredReturn }) {
-  const perBased = Number.isFinite(eps) && Number.isFinite(assumedPer) ? eps * assumedPer : null;
-  const pbrBased = Number.isFinite(bps) && Number.isFinite(assumedPbr) ? bps * assumedPbr : null;
-  let ddm = null;
-  if (Number.isFinite(dividendPerShare) && Number.isFinite(growthRate) && Number.isFinite(requiredReturn)) {
+function computeValuation({ eps, assumedPer, bps, assumedPbr, roe, fcfPerShare, growthRate, requiredReturn }) {
+  const plMethod = Number.isFinite(eps) && Number.isFinite(assumedPer) ? eps * assumedPer : null;
+  const pbrMethod = Number.isFinite(bps) && Number.isFinite(assumedPbr) ? bps * assumedPbr : null;
+  const bsMethod = Number.isFinite(bps) ? bps : null;
+
+  let roeMethod = null;
+  if (Number.isFinite(bps) && Number.isFinite(roe) && Number.isFinite(requiredReturn) && requiredReturn > 0) {
+    roeMethod = bps * (roe / requiredReturn);
+  }
+
+  let dcfMethod = null;
+  if (Number.isFinite(fcfPerShare) && Number.isFinite(growthRate) && Number.isFinite(requiredReturn)) {
     const g = growthRate / 100;
     const r = requiredReturn / 100;
     if (r > g) {
-      ddm = (dividendPerShare * (1 + g)) / (r - g);
+      dcfMethod = (fcfPerShare * (1 + g)) / (r - g);
     }
   }
-  const values = [perBased, pbrBased, ddm].filter((v) => v !== null && Number.isFinite(v));
+
+  const values = [roeMethod, pbrMethod, plMethod, bsMethod, dcfMethod].filter((val) => val !== null && Number.isFinite(val));
   const average = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
-  return { perBased, pbrBased, ddm, average };
+  return { roeMethod, pbrMethod, plMethod, bsMethod, dcfMethod, average };
 }
 
-function renderValuationResult(container, { perBased, pbrBased, ddm, average }) {
+function renderValuationResult(container, { roeMethod, pbrMethod, plMethod, bsMethod, dcfMethod, average }) {
   const fmt = (v) => (v === null ? "算出不可" : `${Math.round(v * 10) / 10}円`);
   container.innerHTML = `
-    <div class="summary-stat"><div class="label">PER基準</div><div class="value">${fmt(perBased)}</div></div>
-    <div class="summary-stat"><div class="label">PBR基準</div><div class="value">${fmt(pbrBased)}</div></div>
-    <div class="summary-stat"><div class="label">配当割引モデル</div><div class="value">${fmt(ddm)}</div></div>
+    <div class="summary-stat"><div class="label">ROE法</div><div class="value">${fmt(roeMethod)}</div></div>
+    <div class="summary-stat"><div class="label">PBR法</div><div class="value">${fmt(pbrMethod)}</div></div>
+    <div class="summary-stat"><div class="label">P/L法</div><div class="value">${fmt(plMethod)}</div></div>
+    <div class="summary-stat"><div class="label">B/S法</div><div class="value">${fmt(bsMethod)}</div></div>
+    <div class="summary-stat"><div class="label">DCF法</div><div class="value">${fmt(dcfMethod)}</div></div>
     <div class="summary-stat"><div class="label">平均</div><div class="value">${fmt(average)}</div></div>
   `;
 }
