@@ -394,9 +394,12 @@ async function fetchStockApi(endpoint, symbol) {
   const code = symbol.startsWith("TSE:") ? symbol.slice(4) : symbol;
   let res;
   try {
-    res = await fetch(`/api/${endpoint}?code=${encodeURIComponent(code)}`);
+    res = await authFetch(`/api/${endpoint}?code=${encodeURIComponent(code)}`);
   } catch (err) {
     throw new Error("バックエンドに接続できません（Vercelへのデプロイ・APIキー設定が必要です）");
+  }
+  if (res.status === 401) {
+    throw new Error("パスフレーズが正しくありません");
   }
   if (res.status === 403) {
     throw new Error("この項目はJ-Quants Standardプラン以上が必要です（¥3,300/月〜）");

@@ -338,3 +338,20 @@ th {
   background: #fdeceb;
   color: var(--color-danger);
 }
+
+.auth-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.auth-gate-card {
+  width: 100%;
+  max-width: 360px;
+}
+
+.auth-gate-card input[type="password"] {
+  width: 100%;
+}

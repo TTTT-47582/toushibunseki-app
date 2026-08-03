@@ -1,4 +1,5 @@
 const { jquantsGet } = require("./_jquants");
+const { requireAuth } = require("./_auth");
 
 function pick(row, candidates) {
   for (const key of candidates) {
@@ -14,6 +15,8 @@ function round(value, digits = 2) {
 }
 
 module.exports = async (req, res) => {
+  if (!requireAuth(req, res)) return;
+
   const code = req.query.code;
   if (!code) {
     res.status(400).json({ error: "code query parameter is required" });

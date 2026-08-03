@@ -24,5 +24,8 @@ document.addEventListener("DOMContentLoaded", () => {
     switchTab(btn.dataset.tab);
   });
 
-  switchTab("dashboard");
+  ensureAuthGate(async () => {
+    await pullCloudData();
+    switchTab("dashboard");
+  });
 });

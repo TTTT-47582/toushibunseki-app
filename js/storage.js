@@ -21,6 +21,30 @@ function loadData() {
 
 function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  pushCloudData(data);
+}
+
+function pushCloudData(data) {
+  authFetch("/api/data", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  }).catch(() => {
+    // オフライン等でクラウド保存に失敗してもローカルには保存済みなので握りつぶす
+  });
+}
+
+async function pullCloudData() {
+  try {
+    const res = await authFetch("/api/data");
+    if (!res.ok) return;
+    const cloud = await res.json();
+    if (cloud) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cloud));
+    }
+  } catch (err) {
+    // オフライン等でクラウド取得に失敗した場合はローカルのデータをそのまま使う
+  }
 }
 
 function generateId() {

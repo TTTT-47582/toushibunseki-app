@@ -8,6 +8,20 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
+<div id="authGate" class="auth-gate">
+  <div class="card auth-gate-card">
+    <h2>パスフレーズを入力</h2>
+    <p class="empty-state" style="padding-top:0;">このアプリのデータを見るにはパスフレーズが必要です。一度入力すればこの端末では次回から聞かれません。</p>
+    <form id="authGateForm">
+      <div class="form-field full-width">
+        <input type="password" id="authGateInput" placeholder="パスフレーズ" required>
+      </div>
+      <button type="submit" class="btn">入る</button>
+    </form>
+  </div>
+</div>
+
+<div id="appRoot" style="display:none;">
 <header class="app-header">
   <h1>投資分析ノート</h1>
   <p class="app-subtitle">ルーティン・トレード日誌・銘柄分析・マクロシナリオを一つに</p>
@@ -28,7 +42,9 @@
   <section id="panel-macroScenario" class="tab-panel"></section>
   <section id="panel-resources" class="tab-panel"></section>
 </main>
+</div>
 
+<script src="js/auth.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/tradeJournal.js"></script>

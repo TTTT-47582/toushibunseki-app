@@ -1,0 +1,9 @@
+{
+  "name": "toushibunseki-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "株投資の分析・記録を支援する個人用アプリ",
+  "dependencies": {
+    "@upstash/redis": "^1.38.1"
+  }
+}
