@@ -18,8 +18,8 @@
 
 ### 2. データ同期用のRedis（無料）を追加する
 
-1. Vercelのプロジェクト画面で「Storage」タブ → 「Marketplace Database Integrations」から Upstash の Redis を選んで追加する（無料枠: 256MB・月50万コマンドで個人利用には十分）
-2. 追加すると `KV_REST_API_URL` / `KV_REST_API_TOKEN`（または `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`）が自動でプロジェクトの環境変数に設定される
+1. Vercelのプロジェクト画面で「Storage」タブ →「Create Database」から Redis を選んで作成する。「High Availability」を「None」にすると無料プラン（Free）が選べる
+2. 作成時にプロジェクトへ接続すると、`REDIS_URL` が自動でプロジェクトの環境変数に設定される
 
 ### 3. パスフレーズを設定する
 
@@ -54,8 +54,7 @@ vercel dev
 ```
 APP_SECRET=your-passphrase-here
 JQUANTS_API_KEY=your-jquants-api-key-here
-KV_REST_API_URL=...
-KV_REST_API_TOKEN=...
+REDIS_URL=...
 ```
 
 （`.env.local.example` をコピーして使うと早い。Redis関連の値はVercelダッシュボードの Storage タブから確認できる）
@@ -64,5 +63,5 @@ KV_REST_API_TOKEN=...
 
 - フロントエンド: HTML/CSS/JavaScript（ビルド不要）
 - バックエンド: Vercel サーバーレス関数（`/api`）。J-Quants APIキーの秘匿・プロキシと、PC/iPhone間のデータ同期を担当
-- データ保存: ブラウザの localStorage（オフラインでも動作）＋ Upstash Redis（`/api/data` 経由でクラウド同期、保存のたびに自動でクラウドへも書き込む）
+- データ保存: ブラウザの localStorage（オフラインでも動作）＋ Redis（`/api/data` 経由でクラウド同期、保存のたびに自動でクラウドへも書き込む）
 - 認証: 共有パスフレーズ方式（`APP_SECRET`）。全ての `/api/*` エンドポイントで検証される

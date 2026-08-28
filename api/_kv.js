@@ -1,26 +1,35 @@
-const { Redis } = require("@upstash/redis");
+const { createClient } = require("redis");
 
 const APP_DATA_KEY = "toushibunseki-app-data";
 
-function getRedisClient() {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) {
-    const err = new Error("Redis is not configured on the server (KV_REST_API_URL/TOKEN missing)");
+async function withRedis(fn) {
+  const url = process.env.REDIS_URL;
+  if (!url) {
+    const err = new Error("Redis is not configured on the server (REDIS_URL missing)");
     err.status = 500;
     throw err;
   }
-  return new Redis({ url, token });
+  const client = createClient({ url });
+  client.on("error", () => {});
+  await client.connect();
+  try {
+    return await fn(client);
+  } finally {
+    await client.quit();
+  }
 }
 
 async function getAppData() {
-  const redis = getRedisClient();
-  return redis.get(APP_DATA_KEY);
+  return withRedis(async (client) => {
+    const raw = await client.get(APP_DATA_KEY);
+    return raw ? JSON.parse(raw) : null;
+  });
 }
 
 async function setAppData(data) {
-  const redis = getRedisClient();
-  await redis.set(APP_DATA_KEY, data);
+  return withRedis(async (client) => {
+    await client.set(APP_DATA_KEY, JSON.stringify(data));
+  });
 }
 
 module.exports = { getAppData, setAppData };
